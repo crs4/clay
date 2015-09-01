@@ -50,7 +50,8 @@ class TestAvroSerializer(TestCase):
             "array_simple_field": ["ccc"],
             "array_complex_field": [
                 {"field_1": "bbb"}
-            ]
+            ],
+            "matrix_field": [["aaa", "bbb"], ["ccc", "ddd"]]
         }
 
         self.avro_simple = self.avro_factory.create("TEST")
@@ -65,8 +66,9 @@ class TestAvroSerializer(TestCase):
 
         self.avro_complex.set_content(self.complex_msg_content)
         self.pyavroc_complex.set_content(self.complex_msg_content)
-        self.complex_encoded = '\x02l\x01\x8e\xd1\x87\x01\x80\x80\xa0\xf6\xf4\xac\xdb\xe0\x1b-\xb2\x9d?&\xa6' \
-                               '\xac\xaa\x04\xb6y3\x06aaa\x00\x02\x06bbb\x00\x00\x02\x06ccc\x00\x00\x06ddd\x00\x06eee'
+        self.complex_encoded = '\x02\x98\x01\x01\x8e\xd1\x87\x01\x80\x80\xa0\xf6\xf4\xac\xdb\xe0\x1b-\xb2\x9d?&\xa6' \
+                               '\xac\xaa\x04\xb6y3\x06aaa\x00\x02\x06bbb\x00\x04\x04\x06aaa\x06bbb\x00\x04\x06ccc' \
+                               '\x06ddd\x00\x00\x00\x02\x06ccc\x00\x00\x06ddd\x00\x06eee'
 
     def test_retrieve(self):
         for factory in self.factories:
@@ -84,6 +86,7 @@ class TestAvroSerializer(TestCase):
             self.assertEqual(m.array_simple_field[0], "ccc")
             self.assertEqual(m.record_field.field_1, "ddd")
             self.assertEqual(m.record_field.field_2, "eee")
+            self.assertEqual(m.matrix_field, [["aaa", "bbb"], ["ccc", "ddd"]])
 
     def test_avro_serializer(self):
         for m in (self.avro_simple, self.pyavroc_simple):

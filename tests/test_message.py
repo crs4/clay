@@ -44,10 +44,11 @@ class TestMessage(TestCase):
         self.assertEqual(test_message.message_type, "TEST_COMPLEX")
         self.assertEqual(test_message.schema, TEST_COMPLEX_SCHEMA)
         self.assertEqual(test_message.fields, ("valid", "id", "long_id", "float_id", "double_id",
-                                               "name", "array_complex_field", "array_simple_field", "record_field"))
+                                               "name", "array_complex_field", "matrix_field", "array_simple_field",
+                                               "record_field"))
         self.assertEqual(test_message.content, {"valid": "true", "id": None, "long_id": None, "float_id": None,
                                                 "double_id": None, "name": None, "array_complex_field": None,
-                                                "array_simple_field": None, "record_field": None})
+                                                "array_simple_field": None, "record_field": None, "matrix_field": None})
         self.assertEqual(test_message.record_field.fields, ("field_1", "field_2"))
         self.assertEqual(test_message.record_field.content, None)
 
@@ -72,9 +73,12 @@ class TestMessage(TestCase):
         with self.assertRaises(SchemaException):
             self.factory.create("TEST_WRONG")
 
-    def test_complex_message_value_assignment(self):
+    def test_complex_message_base_type_assignment(self):
         m = self.factory.create("TEST_COMPLEX")
         self.test_simple_message_value_assignment(m)
+
+    def test_complex_message_value_error(self):
+        m = self.factory.create("TEST_COMPLEX")
 
         with self.assertRaises(ValueError):
             m.array_complex_field = [{"field_1": "aaa"}]
@@ -82,6 +86,10 @@ class TestMessage(TestCase):
         with self.assertRaises(ValueError):
             m.record_field = {"field_1": "aaa"}
 
+    def test_complex_message_record_array_assignment(self):
+        m = self.factory.create("TEST_COMPLEX")
+
+        # Tests on
         m.array_complex_field.add()
         self.assertEqual(len(m.array_complex_field), 1)
         self.assertIsInstance(m.array_complex_field[0], _Record)
@@ -93,6 +101,12 @@ class TestMessage(TestCase):
         self.assertIsInstance(m.array_complex_field[1], _Record)
         m.array_complex_field[1].field_1 = "ccc"
         self.assertEqual(m.array_complex_field[1].field_1, "ccc")
+
+        del m.array_complex_field[1]
+        self.assertEqual(len(m.array_complex_field), 1)
+
+    def test_complex_message_simple_array_assignment(self):
+        m = self.factory.create("TEST_COMPLEX")
 
         m.array_simple_field.add()
         self.assertEqual(len(m.array_simple_field), 1)
@@ -106,11 +120,36 @@ class TestMessage(TestCase):
         m.array_simple_field[1] = "ddd"
         self.assertEqual(m.array_simple_field[1], "ddd")
 
-        del m.array_complex_field[1]
-        self.assertEqual(len(m.array_complex_field), 1)
-
         del m.array_simple_field[1]
         self.assertEqual(len(m.array_simple_field), 1)
+
+    def test_complex_message_matrix_assignment(self):
+        m = self.factory.create("TEST_COMPLEX")
+
+        m.matrix_field.add()
+        self.assertEqual(len(m.matrix_field), 1)
+        self.assertEqual(m.matrix_field[0], None)
+
+        m.matrix_field[0].add()
+        self.assertEqual(len(m.matrix_field[0]), 1)
+        self.assertEqual(m.matrix_field[0], [None])
+        self.assertEqual(m.matrix_field[0][0], None)
+
+        m.matrix_field[0].add("test")
+        self.assertEqual(len(m.matrix_field[0]), 2)
+        self.assertEqual(m.matrix_field[0], [None, "test"])
+        self.assertEqual(m.matrix_field[0][1], "test")
+
+        m.matrix_field[0][0] = "test1"
+        self.assertEqual(m.matrix_field[0], ["test1", "test"])
+        self.assertEqual(m.matrix_field[0][0], "test1")
+
+        m.matrix_field.add(["test_3", "test_4"])
+        self.assertEqual(len(m.matrix_field), 2)
+        self.assertEqual(m.matrix_field[1], ["test_3", "test_4"])
+
+    def test_complex_message_record_assignment(self):
+        m = self.factory.create("TEST_COMPLEX")
 
         m.record_field.field_1 = 'aaa'
         self.assertEqual(m.record_field.field_1, 'aaa')
@@ -127,6 +166,7 @@ class TestMessage(TestCase):
                 "field_1": "bbb"
             }],
             "array_simple_field": ["ccc"],
+            "matrix_field": [["test1", "test2"], ["test3"]],
             "record_field": {
                 "field_1": "ddd",
                 "field_2": "eee"
@@ -144,6 +184,8 @@ class TestMessage(TestCase):
         self.assertEqual(m.array_complex_field[0].field_1, "bbb")
         self.assertEqual(len(m.array_simple_field), 1)
         self.assertEqual(m.array_simple_field[0], "ccc")
+        self.assertEqual(len(m.matrix_field), 2)
+        self.assertEqual(m.matrix_field[0], ["test1", "test2"])
         self.assertEqual(m.record_field.field_1, "ddd")
 
     def test_set_content_message_wrong(self):
@@ -156,31 +198,24 @@ class TestMessage(TestCase):
             "wrong_array_simple_field": ["ccc"],
             "wrong_record_field": {
                 "wrong_field_1": "ddd"
-            }
+            },
+            "wrong_matrix_field": ["eee"]
         }
 
-        # test for the entire message
         m = self.factory.create("TEST_COMPLEX")
         self.assertRaises(AttributeError, m.set_content, content)
 
-        # test for _Record and _Array classes
-        self.assertRaises(AttributeError, m.array_complex_field.set_content,
-                          content["wrong_array_complex_field"])
-
-        self.assertRaises(AttributeError, m.record_field.set_content,
-                          content["wrong_record_field"])
-
-    def test_set_content_array(self):
+    def test_set_content_complex_field_array(self):
         content = [{
             "field_1": "bbb"
         }]
 
         m = self.factory.create("TEST_COMPLEX")
-
         self.assertRaises(InvalidContent, m.array_complex_field.set_content, 1)  # 1 is not iterable
+
         m.array_complex_field.set_content(None)
         self.assertEqual(m.array_complex_field.content, None)
-        # self.assertRaises(ValueError, m.array_complex_field.add, "value")
+        # Type error because the array is None
         self.assertRaises(TypeError, m.array_complex_field.__getitem__, 0)
         self.assertRaises(TypeError, m.array_complex_field.__delitem__, 0)
         self.assertRaises(TypeError, m.array_complex_field.__setitem__, 0, "value")
@@ -190,6 +225,39 @@ class TestMessage(TestCase):
         self.assertEqual(m.array_complex_field.content, [])
         m.array_complex_field.set_content(content)
         self.assertEqual(m.array_complex_field.content, [{"field_1": "bbb"}])
+
+    def test_set_content_simple_field_array(self):
+        m = self.factory.create("TEST_COMPLEX")
+        self.assertRaises(InvalidContent, m.array_simple_field.set_content, "aaa")  # "aaa" is not a list or a tuple
+
+        m.array_simple_field.set_content(None)
+        # Type error because the array is None
+        self.assertRaises(TypeError, m.array_simple_field.__getitem__, 0)
+        self.assertRaises(TypeError, m.array_simple_field.__delitem__, 0)
+        self.assertRaises(TypeError, m.array_simple_field.__setitem__, 0, "value")
+        self.assertRaises(TypeError, len, m.array_simple_field)
+
+        m.array_simple_field.set_content([])
+        self.assertEqual(m.array_simple_field.content, [])
+        m.array_simple_field.set_content(["aaa", "bbb"])
+        self.assertEqual(m.array_simple_field.content, ["aaa", "bbb"])
+
+    def test_set_content_matrix(self):
+        m = self.factory.create("TEST_COMPLEX")
+        self.assertRaises(InvalidContent, m.matrix_field.set_content, "aaa")  # "aaa" is not a list or a tuple
+        self.assertRaises(InvalidContent, m.matrix_field.set_content, ["aaa", "bbb"])  # "aaa" is not a list of list
+
+        m.matrix_field.set_content(None)
+        # Type error because the array is None
+        self.assertRaises(TypeError, m.matrix_field.__getitem__, 0)
+        self.assertRaises(TypeError, m.matrix_field.__delitem__, 0)
+        self.assertRaises(TypeError, m.matrix_field.__setitem__, 0, "value")
+        self.assertRaises(TypeError, len, m.array_simple_field)
+
+        m.matrix_field.set_content([])
+        self.assertEqual(m.matrix_field.content, [])
+        m.matrix_field.set_content([["aaa", "bbb"], ["ccc"]])
+        self.assertEqual(m.matrix_field.content, [["aaa", "bbb"], ["ccc"]])
 
     def test_set_content_array_wrong(self):
         content = [{

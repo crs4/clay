@@ -26,16 +26,29 @@ from .exceptions import SchemaException, InvalidMessage, InvalidContent
 from .serializer import DummySerializer
 
 
-def _is_primitive_type(t):
+def _is_primitive(t):
     primitive_types = ("null", "boolean", "int", "long",
                        "float", "double", "bytes", "string")
     if isinstance(t, list):
-        for t in t:
-            if t not in primitive_types:
+        for st in t:
+            if st not in primitive_types:
                 return False
         return True
     else:
         return t in primitive_types
+
+
+def _is_array(t):
+    if isinstance(t, list):
+        for st in t:
+            if st != "null" and st["type"] != "array":
+                return False
+    else:
+        return t["type"] == "array"
+
+
+def _is_record(t):
+    return t["type"] == "record"
 
 
 class _Record(object):
@@ -82,7 +95,7 @@ class _Record(object):
             else:
                 field_type = field["type"]
 
-            if _is_primitive_type(field_type):
+            if _is_primitive(field_type):
                 setattr(self, field["name"], field.get("default"))
             elif isinstance(field_type, MutableMapping):
                 if field_type["type"] == "array":
@@ -143,12 +156,14 @@ class _Record(object):
 
 
 class _Array(object):
-    def __init__(self, fields):
+    def __init__(self, fields_schema):
         self._content = None
-        if _is_primitive_type(fields):
-            self.fields_schema = fields
+        if _is_primitive(fields_schema):
+            self.fields_schema = fields_schema
+        elif _is_array(fields_schema):
+            self.fields_schema = fields_schema
         else:
-            self.fields_schema = fields["fields"]
+            self.fields_schema = fields_schema["fields"]
 
     content = property(lambda self: self._as_obj())
 
@@ -156,18 +171,21 @@ class _Array(object):
         if self._is_none():
             self._content = []
             # raise ValueError("Cannot add an item to a None array")
-        if _is_primitive_type(self.fields_schema):
+        if _is_primitive(self.fields_schema):
             item = content
             self._content.append(content)
         else:
-            item = _Record(self.fields_schema)
+            if _is_array(self.fields_schema):
+                item = _Array(self.fields_schema["items"])
+            else:
+                item = _Record(self.fields_schema)
             if content:
                 item.set_content(content)
             self._content.append(item)
         return item
 
     def set_content(self, content):
-        if content is not None and not isinstance(content, Iterable):
+        if content is not None and not isinstance(content, list) and not isinstance(content, tuple):
             raise InvalidContent()
         if content is None:
             self._content = None
@@ -177,7 +195,7 @@ class _Array(object):
                 self.add(item)
 
     def _as_obj(self):
-        if self._is_none() or _is_primitive_type(self.fields_schema):
+        if self._is_none() or _is_primitive(self.fields_schema):
             return self._content
         else:
             d = []

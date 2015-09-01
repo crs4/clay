@@ -46,7 +46,8 @@ class TestJSON(TestCase):
             "array_simple_field": ["ccc"],
             "array_complex_field": [
                 {"field_1": "bbb"}
-            ]
+            ],
+            "matrix_field": [["aaa", "bbb"], ["ccc", "ddd"]]
         }
 
         self.simple_message = self.factory.create('TEST')
@@ -58,7 +59,8 @@ class TestJSON(TestCase):
         self.complex_encoded = '{"id": 1, "payload": {"record_field": {"field_2": "eee", "field_1": "ddd"}, ' \
                                '"array_simple_field": ["ccc"], "name": "aaa", "float_id": 1.232, ' \
                                '"long_id": 1000000000000000000, "double_id": 1e-60, "valid": true, ' \
-                               '"array_complex_field": [{"field_1": "bbb"}], "id": 1111111}}'
+                               '"array_complex_field": [{"field_1": "bbb"}], "id": 1111111, ' \
+                               '"matrix_field": [["aaa", "bbb"], ["ccc", "ddd"]]}}'
 
     def test_retrieve(self):
         m = self.factory.retrieve(self.complex_encoded)
@@ -73,6 +75,7 @@ class TestJSON(TestCase):
         self.assertEqual(m.array_simple_field[0], "ccc")
         self.assertEqual(m.record_field.field_1, "ddd")
         self.assertEqual(m.record_field.field_2, "eee")
+        self.assertEqual(m.matrix_field, [["aaa", "bbb"], ["ccc", "ddd"]])
 
     def test_serializer(self):
         value = self.simple_message.serialize()

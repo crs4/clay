@@ -54,6 +54,14 @@ TEST_COMPLEX_SCHEMA = {
                          {"name": "field_1", "type": "string"},
                      ]
                  }}, "null"]},
+        {"name": "matrix_field",
+         "type": {
+             "type": "array",
+             "items": {
+                 "type": "array",
+                 "items": "string"
+             }
+         }},
         {"name": "array_simple_field",
          "type": [{
              "type": "array",
